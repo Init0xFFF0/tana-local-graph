@@ -1,0 +1,246 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><style>*{box-sizing:border-box}body{margin:0;background:#f9f8f6;font:14px system-ui;color:#2b2722;overflow:hidden}svg{width:100vw;height:100vh;touch-action:none}.node{cursor:grab;pointer-events:bounding-box}.node text{fill:#37312a;paint-order:stroke;stroke:#f9f8f6;stroke-width:5;stroke-linejoin:round;font-size:19px;text-anchor:middle}.edge{fill:none;stroke-width:2.5}.muted{opacity:.12}.title{position:fixed;top:20px;left:25px;pointer-events:none}.title h2{font-size:19px;margin:0 0 5px}.title small{color:#887b6c}.controls{position:fixed;bottom:18px;right:18px;background:#fff;padding:12px;border-radius:12px;box-shadow:0 2px 14px #0001;max-width:340px;line-height:2}.controls label{margin-right:8px;white-space:nowrap;font-size:12px}button{border:1px solid #ddd4c8;background:#fff;padding:5px 12px;border-radius:8px;cursor:pointer}.group{fill:#c1b6a6;font-size:15px;letter-spacing:3px}@media print{.controls{display:none}.title{display:none}}#preview{display:none;position:fixed;z-index:10;pointer-events:none;width:min(360px,calc(100vw - 24px));max-height:310px;overflow:hidden;background:#fffefa;color:#3d352a;border:1px solid #ded6c9;border-radius:12px;padding:16px;box-shadow:0 6px 28px #0002}#preview strong{display:block;font-size:15px;line-height:1.5;margin-bottom:8px}#preview pre{font:13px/1.65 system-ui;white-space:pre-wrap;margin:0;color:#6b6052}#preview small{display:block;margin-top:10px;color:#94836d}@media print{#preview{display:none!important}}.node.selected>circle,.node.selected>rect{stroke:#241a51;stroke-width:5}.title{max-width:calc(100vw - 40px);padding:8px 12px;border-radius:8px;background:rgba(249,248,246,.94)}.title small{display:block;line-height:1.7}.controls{max-width:calc(100vw - 36px)}@media(max-width:500px){.title{top:10px;left:10px}.title h2{font-size:16px}.title small{font-size:11px}.controls{bottom:10px;right:10px;padding:8px;font-size:11px}.controls small{display:none}}#preview pre{overflow-wrap:anywhere}.node.topic>.node-title{font-size:22px;font-weight:400;fill:#37312a}.node{transition:opacity .2s ease-out}.node:active{cursor:grabbing}.node>circle,.node>rect{transform-origin:0 0;transition:transform .15s ease-out,filter .15s ease-out}.node:hover>circle,.node:hover>rect{transform:scale(1.12);filter:brightness(1.05)}.node:active>circle,.node:active>rect{transform:scale(1.05);filter:brightness(.95)}@media(prefers-reduced-motion:reduce){.node,.node>circle,.node>rect{transition:none}}@media print{.node>circle,.node>rect{transform:none!important;filter:none!important}}.controls{display:none!important}
+/* Contrast and hierarchy only: preserve node sizes, normal Topic weight and physics. */
+.node>.node-title{fill:#29262c;stroke-width:4;font-weight:400}
+.node.topic>.node-title{fill:#29262c;font-weight:400}
+.edge-ref{stroke-width:2.8;opacity:.95}
+.edge-topic,.edge-parent{stroke-width:2;opacity:.72}
+.edge-contains{stroke-width:1.8;opacity:.62}
+.node.muted{opacity:.18}.edge.muted{opacity:.1}
+</style>
+<div class="title"><h2>笔记图谱</h2><small>滚轮缩放 · 拖动画布 · 点击查看</small></div>
+<div id="preview"><strong></strong><pre></pre><small>点击节点查看完整内容与双链</small></div><svg id="graph" viewBox="0 0 1830 1430"><defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10" fill="#ae6036"/></marker></defs><g id="edges"></g><g id="nodes"></g></svg>
+<div class="controls"><label style="color:#bd6b38"><input type="checkbox" data-type="ref" checked>正文引用 →</label><label style="color:#a79ec6"><input type="checkbox" data-type="topic" checked>Topic 归属</label><br><label style="color:#589b7a"><input type="checkbox" data-type="parent" checked>Topic 父级</label><label style="color:#aaa"><input type="checkbox" data-type="contains" checked>父子层级</label><br><label title="没有任何真实连线的节点；相似度关联不计入连线"><input type="checkbox" id="show-isolated" checked>孤立节点</label><br><button id="motion">暂停动态</button> <button id="fit">适应窗口</button> <button id="reset">重置布局</button> <button id="pdf">PDF</button><small style="display:block;color:#8d8174">仅显示有 Supertag 的节点；孤立按全部真实连线判断。</small></div>
+<script>
+const data=@@GRAPH@@;const svg=document.getElementById('graph'),ns='http://www.w3.org/2000/svg',map=new Map(data.nodes.map(n=>[n.id,n])),colors={Topic:'#a65a10',Question:'#5b56d6',Note:'#087f62',Book:'#b6541d',Source:'#b6541d',Video:'#b6541d',Article:'#a65a10',Idea:'#c33380',Mistake:'#8d49cb','节点':'#087996'},edgeColors={ref:'#ae6036',topic:'#b3a9c3',parent:'#719b8c',contains:'#bdb7ae'};let vb=[0,0,1830,1430];const initial=JSON.parse(JSON.stringify(data.nodes));
+const layoutScale=Math.max(1,Math.sqrt(data.nodes.length/23)*1.38);
+const layoutWidth=1830*layoutScale,layoutHeight=1430*layoutScale;
+for(const n of initial){n.x*=layoutScale;n.y*=layoutScale;}
+for(const n of data.nodes){n.x*=layoutScale;n.y*=layoutScale;}
+vb=[0,0,layoutWidth,layoutHeight];svg.setAttribute('viewBox',vb.join(' '));
+function el(t,attrs,p){let e=document.createElementNS(ns,t);Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));p.appendChild(e);return e}
+for(let e of data.edges){e.el=el('path',{class:'edge edge-'+e.type,stroke:edgeColors[e.type],'stroke-dasharray':e.type==='ref'?'':e.type==='topic'?'7 5':e.type==='parent'?'3 4':'2 6','marker-end':e.type==='ref'?'url(#a)':''},document.getElementById('edges'));let title=el('title',{},e.el);title.textContent=e.evidence;}
+function displayName(n){let same=data.nodes.filter(a=>a.name===n.name).length>1;return n.name+(same?' · '+n.id.slice(0,4):'')}
+for(let n of data.nodes){n.el=el('g',{class:'node','data-id':n.id},document.getElementById('nodes'));n.r=n.kind==='Topic'?40:30;if(n.kind==='Topic')n.el.classList.add('topic');el(n.kind==='Book'?'rect':'circle',n.kind==='Book'?{x:-30,y:-30,width:60,height:60,rx:6,fill:colors[n.kind]}:{r:n.r,fill:n.status==='Unanswered'?'#f9f8f6':colors[n.kind],stroke:colors[n.kind],'stroke-width':3},n.el);if(n.kind==='Idea'){const bulb=el('g',{class:'idea-icon',transform:'translate(-12,-12)',fill:'none',stroke:'#fff','stroke-width':1.8,'stroke-linecap':'round','stroke-linejoin':'round','pointer-events':'none','aria-hidden':'true'},n.el);el('path',{d:'M15.09 14a6 6 0 1 0-6.18 0c.91.7 1.09 1.3 1.09 2h4c0-.7.18-1.3 1.09-2Z'},bulb);el('path',{d:'M9 18h6M10 21h4'},bulb);}else{let icon=el('text',{y:n.kind==='Topic'?9.6:7.2,style:'stroke:none;fill:'+(n.status==='Unanswered'?colors[n.kind]:'#fff')+';font-size:'+(n.kind==='Topic'?32:24)+'px'},n.el);icon.textContent={Topic:'#',Question:'?',Note:'N',Book:'B',Mistake:'!','节点':'·'}[n.kind];}let t=el('text',{class:'node-title',y:n.r+(n.kind==='Topic'?26:22)},n.el);n.titleEl=t;const fullTitle=el('title',{},n.el);fullTitle.textContent=n.name;let parts=displayName(n).match(/.{1,18}/gu)||[''];parts.forEach((s,i)=>{let sp=el('tspan',{x:0,dy:i?24:0},t);sp.textContent=s});let dragging=false,start,offset; n.el.addEventListener('pointerdown',e=>{e.stopPropagation();dragging=true;hidePreview();n.dragging=true;n.vx=0;n.vy=0;start=[e.clientX,e.clientY];let pt=svg.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;pt=pt.matrixTransform(svg.getScreenCTM().inverse());offset=[n.x-pt.x,n.y-pt.y];n.el.setPointerCapture(e.pointerId)});n.el.addEventListener('pointermove',e=>{if(!dragging)return;let pt=svg.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;pt=pt.matrixTransform(svg.getScreenCTM().inverse());n.x=pt.x+offset[0];n.y=pt.y+offset[1];draw()});n.el.addEventListener('pointerup',e=>{dragging=false;n.dragging=false;if(Math.hypot(e.clientX-start[0],e.clientY-start[1])<5)select(n)});n.el.addEventListener('pointercancel',()=>{dragging=false;n.dragging=false});n.el.addEventListener('mouseenter',e=>{n.hovered=true;highlight(n);showPreview(n,e)});n.el.addEventListener('pointermove',e=>{if(!n.dragging)placePreview(e)});n.el.addEventListener('mouseleave',()=>{n.hovered=false;highlight(null);hidePreview()});}
+for(const n of data.nodes){const box=n.el.getBBox();n.layoutBox={left:box.x-24,right:box.x+box.width+24,top:box.y-24,bottom:box.y+box.height+24};}
+// Label detail follows the actual SVG scale; stored names and force geometry stay intact.
+function updateNodeLabels(){
+ const matrix=svg.getScreenCTM();if(!matrix)return;
+ const scale=Math.hypot(matrix.a,matrix.b),level=scale<.4?'overview':scale<.75?'medium':'detail';
+ const limit=level==='overview'?12:level==='medium'?24:36,wrap=level==='detail'?18:12;
+ for(const n of data.nodes){
+  if(!n.titleEl||n.titleLevel===level)continue;n.titleLevel=level;
+  const chars=Array.from(displayName(n));
+  const title=chars.length>limit?chars.slice(0,limit-1).join('')+'…':chars.join('');
+  const lines=[];let line='';
+  for(const token of title.match(/[A-Za-z0-9_]+|./gu)||[]){
+   if(line&&Array.from(line+token).length>wrap){lines.push(line);line='';}
+   if(Array.from(token).length>wrap){for(const char of token){if(Array.from(line).length>=wrap){lines.push(line);line='';}line+=char;}}
+   else line+=token;
+  }
+  if(line)lines.push(line);
+  const clipped=lines.length>2;lines.splice(2);
+  if(clipped){const chars=Array.from(lines[1].replace(/…$/,''));lines[1]=chars.slice(0,Math.max(1,wrap-1)).join('')+'…';}
+  n.titleEl.replaceChildren();lines.forEach((text,i)=>{const span=el('tspan',{x:0,dy:i?24:0},n.titleEl);span.textContent=text;});
+  n.layoutBoxDirty=true;
+ }
+ // Read geometry after all label writes, only for changed, visible nodes.
+ for(const n of data.nodes){
+  if(!n.layoutBoxDirty||n.hiddenByIsolation)continue;
+  const box=n.el.getBBox();
+  n.layoutBox={left:box.x-24,right:box.x+box.width+24,top:box.y-24,bottom:box.y+box.height+24};
+  n.layoutBoxDirty=false;
+ }
+}
+new MutationObserver(updateNodeLabels).observe(svg,{attributes:true,attributeFilter:['viewBox']});
+window.addEventListener('resize',updateNodeLabels);
+function draw(){updateNodeLabels();for(let n of data.nodes)n.el.setAttribute('transform',`translate(${n.x},${n.y})`);for(let e of data.edges){let a=map.get(e.source),b=map.get(e.target),dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1;let x=a.x+dx/d*(a.r+4),y=a.y+dy/d*(a.r+4),xx=b.x-dx/d*(b.r+7),yy=b.y-dy/d*(b.r+7);let bend=e.type==='ref'?.12:0;e.el.setAttribute('d',`M${x} ${y}Q${(x+xx)/2-(yy-y)*bend} ${(y+yy)/2+(xx-x)*bend} ${xx} ${yy}`)}}
+const preview=document.getElementById('preview');
+function showPreview(n,e){
+ preview.querySelector('strong').textContent=n.name;
+ let body=n.body.split('\n').slice(1).join('\n').replace(/<!--.*?-->/g,'').replace(/<[^>]*>/g,'').replace(/\[([^\]]+)\]\(tana:[^)]*\)/g,'$1').replace(/\*\*/g,'').replace(/^\s*-\s*/gm,'');
+ preview.querySelector('pre').textContent=body||'这个节点暂无正文内容。';preview.style.display='block';placePreview(e);
+}
+function placePreview(e){if(preview.style.display!=='block')return;let w=preview.offsetWidth,h=preview.offsetHeight;preview.style.left=Math.max(12,Math.min(innerWidth-w-12,e.clientX+18))+'px';preview.style.top=Math.max(12,Math.min(innerHeight-h-12,e.clientY+18))+'px';}
+function hidePreview(){preview.style.display='none';}
+let pinned=null;
+const linkedNodeIds=new Set(data.edges.flatMap(edge=>[edge.source,edge.target]));
+const isolatedOption=document.getElementById('show-isolated');
+function visibleGraphNodes(){return data.nodes.filter(node=>!node.hiddenByIsolation);}
+function updateIsolatedVisibility(){
+ hidePreview();
+ for(const node of data.nodes){
+  node.hiddenByIsolation=!isolatedOption.checked&&!linkedNodeIds.has(node.id);
+  node.el.style.display=node.hiddenByIsolation?'none':'';
+  if(node.hiddenByIsolation){node.hovered=false;node.vx=0;node.vy=0;}
+ }
+ updateNodeLabels();
+ if(pinned?.hiddenByIsolation){pinned=null;highlight(null);parent.postMessage({action:'dismiss'},'*');}
+}
+isolatedOption.addEventListener('change',updateIsolatedVisibility);
+
+function highlight(n){
+ n=pinned||n;const connected=new Set(n?[n.id]:[]);
+ if(pinned){for(const related of data.semantic?.relatedNotes?.[pinned.id]||[])if(map.has(related.id))connected.add(related.id);}
+ else if(n)for(const edge of data.edges)if(edge.source===n.id||edge.target===n.id){connected.add(edge.source);connected.add(edge.target);}
+ for(const node of data.nodes){node.el.classList.toggle('muted',!!n&&!connected.has(node.id));node.el.classList.toggle('semantic-related',!!pinned&&node.id!==pinned.id&&connected.has(node.id));}
+ // Keep existing real edges only. Selection never synthesizes similarity lines.
+ for(const edge of data.edges)edge.el.classList.toggle('muted',!!n&&(pinned?!(connected.has(edge.source)&&connected.has(edge.target)):edge.source!==n.id&&edge.target!==n.id));
+}
+function select(n){pinned=n;highlight(n);window.parent.postMessage({node:{tanaId:n.id}},'*')}
+let pan=null;svg.addEventListener('pointerdown',e=>{if(e.target.closest('.node'))return;pan=[e.clientX,e.clientY,...vb];svg.setPointerCapture(e.pointerId)});svg.addEventListener('pointermove',e=>{if(!pan)return;let rect=svg.getBoundingClientRect(),scale=Math.min(rect.width/vb[2],rect.height/vb[3]);vb[0]=pan[2]-(e.clientX-pan[0])/scale;vb[1]=pan[3]-(e.clientY-pan[1])/scale;svg.setAttribute('viewBox',vb.join(' '))});svg.addEventListener('pointerup',()=>pan=null);svg.addEventListener('pointercancel',()=>pan=null);document.querySelectorAll('[data-type]').forEach(c=>c.onchange=()=>data.edges.filter(e=>e.type===c.dataset.type).forEach(e=>e.el.style.display=c.checked?'':'none'));document.getElementById('fit').onclick=()=>frameGraph();document.getElementById('reset').onclick=()=>{data.nodes.forEach(n=>{let o=initial.find(a=>a.id===n.id);n.x=o.x;n.y=o.y;n.vx=0;n.vy=0});draw();document.getElementById('fit').click()};document.getElementById('pdf').onclick=()=>window.print();draw();
+// Integrate node repulsion and link springs in graph coordinates.
+let running=true,lastTime=0,printing=false,animationId=null;
+for(const n of data.nodes){n.vx=0;n.vy=0;n.anchorX=n.x;n.anchorY=n.y;}
+const motion=document.getElementById('motion');
+motion.onclick=()=>{running=!running;cancelAnimationFrame(animationId);motion.textContent=running?'暂停动态':'恢复动态';if(running){lastTime=0;animationId=requestAnimationFrame(tick);}};
+window.addEventListener('beforeprint',()=>printing=true);
+window.addEventListener('afterprint',()=>printing=false);
+
+const semanticData=data.semantic||{ids:[],values:[]};
+// Local Qwen cosine similarity changes layout forces only; no graph edges are added.
+// Cosine similarity is the primary distance signal. Every pair has a continuous,
+// bidirectional spring; sparse nearest-neighbour emphasis preserves local detail.
+function semanticTargetDistance(score){const similarity=Math.max(0,Math.min(1,score)),low=Math.max(0,Math.min(1,(.60-similarity)/.60));return 260+1450*Math.pow(1-similarity,1.5)+200*low*low*(3-2*low);}
+const semanticPairs=[],semanticIndex=new Map(semanticData.ids.map((id,index)=>[id,index]));
+for(let i=0;i<data.nodes.length;i++)for(let j=i+1;j<data.nodes.length;j++){
+ const a=data.nodes[i],b=data.nodes[j],score=semanticData.values[semanticIndex.get(a.id)]?.[semanticIndex.get(b.id)];
+ if(Number.isFinite(score))semanticPairs.push({a,b,score,target:semanticTargetDistance(score)});
+}
+const semanticNearest=new Map(data.nodes.map(n=>[n.id,new Set()]));
+for(const n of data.nodes){const nearest=semanticPairs.filter(p=>p.a===n||p.b===n).sort((a,b)=>b.score-a.score).slice(0,5);for(const p of nearest)semanticNearest.get(n.id).add((p.a===n?p.b:p.a).id);}
+const semanticDensity=Math.sqrt(23/Math.max(23,data.nodes.length));
+for(const p of semanticPairs){const local=semanticNearest.get(p.a.id).has(p.b.id)||semanticNearest.get(p.b.id).has(p.a.id);p.weight=semanticDensity*(.00055+(local?.0035*Math.pow(Math.max(0,p.score),3):0));}
+function applySemanticLayoutForces(){
+ for(const {a,b,score,target,weight} of semanticPairs){
+  if(a.hiddenByIsolation||b.hiddenByIsolation)continue;
+  let dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);
+  if(d<1e-6){dx=.70710678;dy=.70710678;d=1;}
+  // Signed error: below target pushes apart, above target pulls together.
+  const force=(d-target)*weight,ax=dx/d*force,ay=dy/d*force;
+  if(!a.dragging&&!a.hovered){a.ax+=ax;a.ay+=ay;}
+  if(!b.dragging&&!b.hovered){b.ax-=ax;b.ay-=ay;}
+ }
+}
+function tick(time){
+ if(!running)return;
+ const dt=Math.min(2,Math.max(.25,(time-lastTime)/16.667||1));lastTime=time;
+ if(running&&!printing&&!document.hidden){
+  const activeNodes=visibleGraphNodes();
+  const sceneX=activeNodes.reduce((sum,n)=>sum+n.x,0)/Math.max(1,activeNodes.length),sceneY=activeNodes.reduce((sum,n)=>sum+n.y,0)/Math.max(1,activeNodes.length);
+  for(const n of activeNodes){n.ax=semanticPairs.length?(layoutWidth/2-sceneX)*.0015:(n.anchorX-n.x)*.00015;n.ay=semanticPairs.length?(layoutHeight/2-sceneY)*.0015:(n.anchorY-n.y)*.00015;const box=n.layoutBox;n.ax+=Math.max(0,90-n.x-box.left)*.03-Math.max(0,n.x+box.right-layoutWidth+90)*.03;n.ay+=Math.max(0,110-n.y-box.top)*.03-Math.max(0,n.y+box.bottom-layoutHeight+90)*.03;}
+  for(let i=0;i<activeNodes.length;i++)for(let j=i+1;j<activeNodes.length;j++){
+   const a=activeNodes[i],b=activeNodes[j];let dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1;
+   let force=(semanticPairs.length?1800:9000)/Math.max(900,d*d);
+   // Soft label-aware separation changes velocity, never projects node positions.
+   const aa=a.layoutBox,bb=b.layoutBox;
+   const ox=Math.min(a.x+aa.right,b.x+bb.right)-Math.max(a.x+aa.left,b.x+bb.left);
+   const oy=Math.min(a.y+aa.bottom,b.y+bb.bottom)-Math.max(a.y+aa.top,b.y+bb.top);
+   if(ox>0&&oy>0){
+    const horizontal=ox<oy;
+    const push=Math.min(12,(horizontal?ox:oy)*.15);
+    const direction=horizontal?(dx>=0?1:-1):(dy+(bb.top+bb.bottom-aa.top-aa.bottom)/2>=0?1:-1);
+    if(horizontal){a.ax-=direction*push;b.ax+=direction*push;}
+    else{a.ay-=direction*push;b.ay+=direction*push;}
+   }
+   a.ax-=dx/d*force;a.ay-=dy/d*force;b.ax+=dx/d*force;b.ay+=dy/d*force;
+  }
+  applySemanticLayoutForces();
+  for(const n of activeNodes){if(n.dragging||n.hovered)continue;n.vx=(n.vx+n.ax*dt)*Math.pow(.88,dt);n.vy=(n.vy+n.ay*dt)*Math.pow(.88,dt);n.x+=n.vx*dt;n.y+=n.vy*dt;}
+  draw();
+ }
+ animationId=requestAnimationFrame(tick);
+}
+animationId=requestAnimationFrame(tick);
+window.addEventListener('message',e=>{if(e.source!==parent||e.data?.action!=='focus')return;const candidate=map.get(e.data.id),n=candidate&&!candidate.hiddenByIsolation?candidate:null;pinned=n||null;highlight(n);for(const a of data.nodes)a.el.classList.toggle('selected',a===n);if(n&&e.data.center){const rect=svg.getBoundingClientRect(),scale=readGraphZoom()/100,free=graphSafeViewport();vb=[n.x-(free.x+free.width/2)/scale,n.y-(free.y+free.height/2)/scale,rect.width/scale,rect.height/scale];svg.setAttribute('viewBox',vb.join(' '));}});
+
+let blankDown=null;
+document.addEventListener('pointerdown',e=>{blankDown=e.button===0&&!e.target.closest('.node,button,input,label,.controls,a')?{x:e.clientX,y:e.clientY}:null;},true);
+document.addEventListener('pointerup',e=>{if(blankDown&&Math.hypot(e.clientX-blankDown.x,e.clientY-blankDown.y)<5&&!e.target.closest('.node,button,input,label,.controls,a'))parent.postMessage({action:'dismiss'},'*');blankDown=null;},true);
+document.addEventListener('pointercancel',()=>blankDown=null);
+
+
+// Preserve the existing scene during a background data refresh.
+window.liveBusy=false;
+document.addEventListener('pointerdown',()=>window.liveBusy=true,true);
+for(const type of ['pointerup','pointercancel'])document.addEventListener(type,()=>window.liveBusy=false,true);
+window.captureLiveScene=()=>({layoutVersion:data.semantic?.layout?.method,nodes:data.nodes.map(n=>({id:n.id,x:n.x,y:n.y,vx:n.vx,vy:n.vy,anchorX:n.anchorX,anchorY:n.anchorY})),box:svg.getAttribute('viewBox'),checks:[...document.querySelectorAll('input[type=checkbox]')].map((n,i)=>[n.dataset.type?'type:'+n.dataset.type:n.id?'id:'+n.id:'index:'+i,n.checked]),paused:!running});
+const saved=parent.pendingLiveScene;
+if(saved&&saved.layoutVersion===data.semantic?.layout?.method){
+ const positions=new Map(saved.nodes.map(n=>[n.id,n]));
+ for(const n of data.nodes){const p=positions.get(n.id);if(p)for(const key of ['x','y','vx','vy','anchorX','anchorY'])if(Number.isFinite(p[key]))n[key]=p[key];}
+ if(saved.box){vb=saved.box.split(' ').map(Number);svg.setAttribute('viewBox',saved.box);}
+ for(const [i,[key,checked]] of (saved.checks||[]).entries()){const inputs=[...document.querySelectorAll('input[type=checkbox]')];const input=inputs.find(n=>key===(n.dataset.type?'type:'+n.dataset.type:n.id?'id:'+n.id:'index:'+inputs.indexOf(n)))||document.getElementById(key)||(!key?inputs[i]:null);if(input&&input.checked!==checked){input.checked=checked;input.dispatchEvent(new Event('change'));}}
+ if(saved.paused===running)motion.click();
+ draw();
+}
+
+
+// Shared zoom API: 100% means one SVG unit per CSS pixel.
+// Compute camera space in CSS pixels. The floating panel remains over the canvas,
+// so fit/default framing use the best-fitting free rectangle without changing node physics.
+function graphSafeViewport(){
+ const rect=svg.getBoundingClientRect(),title=document.querySelector('.title')?.getBoundingClientRect();
+ const base={x:24,y:Math.max(24,(title?.bottom||0)-rect.top+20),right:rect.width-24,bottom:rect.height-76};
+ base.right=Math.max(base.x+80,base.right);base.bottom=Math.max(base.y+80,base.bottom);
+ let candidates=[base];
+ try{
+  const panel=parent.document.getElementById('detail-panel'),frameRect=frameElement.getBoundingClientRect();
+  if(panel&&!panel.hidden){
+   const p=panel.getBoundingClientRect(),left=p.left-frameRect.left-18,right=p.right-frameRect.left+18,top=p.top-frameRect.top-18,bottom=p.bottom-frameRect.top+18;
+   if(right>base.x&&left<base.right&&bottom>base.y&&top<base.bottom){
+    candidates=[{...base,right:Math.min(base.right,left)},{...base,x:Math.max(base.x,right)},{...base,bottom:Math.min(base.bottom,top)},{...base,y:Math.max(base.y,bottom)}].filter(r=>r.right-r.x>=160&&r.bottom-r.y>=120);
+   }
+  }
+ }catch(error){/* Standalone HTML still frames within its own canvas. */}
+ const visible=visibleGraphNodes();
+ const spanX=Math.max(1,...visible.map(n=>n.x+n.layoutBox.right))-Math.min(0,...visible.map(n=>n.x+n.layoutBox.left));
+ const spanY=Math.max(1,...visible.map(n=>n.y+n.layoutBox.bottom))-Math.min(0,...visible.map(n=>n.y+n.layoutBox.top));
+ const fit=r=>Math.min((r.right-r.x)/Math.max(1,spanX),(r.bottom-r.y)/Math.max(1,spanY));
+ const free=candidates.sort((a,b)=>fit(b)-fit(a)||(b.right-b.x)*(b.bottom-b.y)-(a.right-a.x)*(a.bottom-a.y))[0]||base;
+ return {...free,width:free.right-free.x,height:free.bottom-free.y};
+}
+function frameGraph(percent=null){
+ const nodes=visibleGraphNodes();if(!nodes.length)return;
+ const rect=svg.getBoundingClientRect();if(!rect.width||!rect.height)return;
+ const free=graphSafeViewport();
+ // Re-evaluate label geometry if fitting crosses a label-detail threshold.
+ for(let pass=0;pass<3;pass++){
+  updateNodeLabels();
+  const left=Math.min(...nodes.map(n=>n.x+n.layoutBox.left)),right=Math.max(...nodes.map(n=>n.x+n.layoutBox.right));
+  const top=Math.min(...nodes.map(n=>n.y+n.layoutBox.top)),bottom=Math.max(...nodes.map(n=>n.y+n.layoutBox.bottom));
+  const scale=percent===null?Math.min(4,free.width/Math.max(1,right-left),free.height/Math.max(1,bottom-top)):percent/100;
+  const cameraY=percent!==null&&(bottom-top)*scale>free.height?top-free.y/scale:(top+bottom)/2-(free.y+free.height/2)/scale;
+  vb=[(left+right)/2-(free.x+free.width/2)/scale,cameraY,rect.width/scale,rect.height/scale];
+  svg.setAttribute('viewBox',vb.join(' '));
+ }
+ updateNodeLabels();reportGraphZoom();
+}
+function readGraphZoom(){const m=svg.getScreenCTM();return m?Math.hypot(m.a,m.b)*100:100;}
+function reportGraphZoom(){parent.postMessage({action:'zoom-state',percent:readGraphZoom()},'*');}
+function setGraphZoom(percent,clientX,clientY){
+ if(!Number.isFinite(percent))return;
+ percent=Math.max(10,Math.min(400,percent));
+ const rect=svg.getBoundingClientRect(),matrix=svg.getScreenCTM();if(!matrix||!rect.width||!rect.height)return;
+ const px=clientX??rect.left+rect.width/2,py=clientY??rect.top+rect.height/2;
+ const point=svg.createSVGPoint();point.x=px;point.y=py;const anchor=point.matrixTransform(matrix.inverse());
+ const width=rect.width/(percent/100),height=rect.height/(percent/100);
+ const box=[anchor.x-(px-rect.left)/rect.width*width,anchor.y-(py-rect.top)/rect.height*height,width,height];
+ vb=box;
+ svg.setAttribute('viewBox',box.join(' '));reportGraphZoom();
+}
+window.readGraphZoom=readGraphZoom;window.setGraphZoom=setGraphZoom;
+svg.addEventListener('wheel',event=>{event.preventDefault();setGraphZoom(readGraphZoom()*(event.deltaY>0?1/1.12:1.12),event.clientX,event.clientY);},{passive:false});
+new MutationObserver(reportGraphZoom).observe(svg,{attributes:true,attributeFilter:['viewBox']});
+if(!(saved?.box&&saved.layoutVersion===data.semantic?.layout?.method))frameGraph(50);
+window.addEventListener('resize',reportGraphZoom);reportGraphZoom();
+
+window.readGraphControls=()=>({running,isolated:isolatedOption.checked,edges:Object.fromEntries([...document.querySelectorAll('[data-type]')].map(input=>[input.dataset.type,input.checked]))});
+function reportGraphControls(){parent.postMessage({action:'controls-state'},'*');}
+window.runGraphAction=(action,value)=>{
+ if(action==='isolated'){isolatedOption.checked=!!value;isolatedOption.dispatchEvent(new Event('change'));}
+ else if(action.startsWith('edge:')){const input=document.querySelector('[data-type="'+action.slice(5)+'"]');if(input){input.checked=!!value;input.dispatchEvent(new Event('change'));}}
+ else{const id={motion:'motion',fit:'fit',reset:'reset',pdf:'pdf'}[action];if(id)document.getElementById(id).click();}
+ reportGraphControls();
+};
+document.addEventListener('change',reportGraphControls);document.getElementById('motion').addEventListener('click',reportGraphControls);reportGraphControls();
+</script></html>

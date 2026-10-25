@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tana-local-graph"
+version = "0.1.0"
+description = "A read-only local Tana graph with semantic layout and a data-free demo"
+readme = "README.md"
+requires-python = ">=3.11"
+# No redistribution license is selected on the owner's behalf; see LICENSE-NOTICE.md.
+dependencies = []
+
+[project.optional-dependencies]
+live = [
+  "numpy>=2.0,<3",
+  "scikit-learn>=1.7,<2",
+  "jieba>=0.42.1,<0.43",
+  "torch>=2.8,<3",
+  "sentence-transformers>=5.1,<7",
+  "transformers>=4.51,<6",
+  "tzdata>=2025.1",
+]
+
+[project.scripts]
+tana-local-graph = "tana_graph.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+tana_graph = ["web/*.html", "examples/*.json"]

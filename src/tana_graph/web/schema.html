@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schema Graph</title>
+    <style>
+:root{--bg:#f9f8f6;--bg2:#ffffff;--c1:#1a1816;--c2:#6b635a;--c3:#a8a29e;--field:#78716c;--hasField:#e7e5e4;--font:'Outfit',system-ui,sans-serif}
+
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font);background:var(--bg);color:var(--c1);overflow:hidden;height:100dvh}
+svg{display:block;width:100%;height:100%}
+
+.node{cursor:grab;transition:opacity .2s ease-out}
+.node:active{cursor:grabbing}
+.node.tag circle{transition:transform .15s ease-out,filter .15s ease-out}
+.node.field rect{fill:var(--field);transition:transform .15s ease-out,filter .15s ease-out}
+.node:hover circle,.node:hover rect{transform:scale(1.12);filter:brightness(1.05)}
+.node:active circle,.node:active rect{transform:scale(1.05);filter:brightness(0.95)}
+.node .icon{fill:#fff;stroke:#fff;stroke-width:0}
+.node .name{paint-order:stroke;stroke:var(--bg);stroke-width:4px;stroke-linejoin:round;fill:var(--c1);font-size:12px;font-weight:500;text-anchor:middle;transition:opacity .2s ease-out}
+.node.field .name{font-size:10px;fill:var(--c2)}
+
+.node.dimmed{opacity:.16}
+.link.dimmed{opacity:.12}
+
+.link{fill:none;stroke-width:1.5;transition:opacity .2s ease-out}
+.link.extends{stroke-opacity:.8}
+.link.hasField{stroke:var(--c3);stroke-opacity:.7;stroke-width:1}
+.link.instance{stroke-opacity:.7;stroke-dasharray:4 2}
+.link.highlighted{stroke-width:2.5;stroke-opacity:1}
+
+.legend{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg2);border-radius:12px;padding:.75rem 1rem;font-size:.6rem;color:var(--c3);box-shadow:0 1px 3px rgba(0,0,0,.04),0 4px 12px rgba(0,0,0,.06);line-height:1.6;max-width:180px;opacity:.85;transition:opacity .2s ease-out}
+.legend:hover{opacity:1}
+.legend h3{font-size:.5rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.35rem;color:var(--c2);font-weight:600}
+.legend-row{display:flex;gap:.35rem;margin-bottom:.25rem;flex-wrap:wrap}
+.legend-chip{display:inline-flex;align-items:center;gap:.3rem;padding:.15rem .4rem;border-radius:4px;background:var(--bg);font-size:.55rem}
+.legend-chip svg{width:10px;height:10px}
+.legend-line{width:12px;height:0;border-top:2px solid var(--c3)}
+.legend-line.dashed{border-top-style:dashed}
+
+.title{position:fixed;top:2rem;left:2rem}
+.title h1{font-size:1.35rem;font-weight:700;letter-spacing:-.02em}
+.title p{font-size:.7rem;color:var(--c3);margin-top:.25rem;font-weight:400}
+
+.legend-actions{display:flex;align-items:center;gap:.5rem;margin-top:.6rem;padding-top:.5rem;border-top:1px solid var(--hasField)}
+.btn{font-family:var(--font);font-size:.55rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--c2);background:transparent;border:0;cursor:pointer;padding:.3rem .1rem;transition:color .15s;display:flex;align-items:center;gap:.3rem}
+.btn:hover{color:var(--c1)}
+.btn svg{width:12px;height:12px;stroke:currentColor;stroke-width:1.5;fill:none}
+.legend-brand{margin-left:auto;font-size:.5rem;font-weight:500;letter-spacing:.04em;color:var(--c3);text-decoration:none;opacity:.5;transition:opacity .15s}
+.legend-brand:hover{opacity:.8}
+.brand-full{display:none}
+.brand-short{display:inline}
+
+@media print{
+    html,body{margin:0;padding:0;overflow:hidden;height:100%;background:#fff!important}
+    .tooltip,.title{display:none!important}
+    .legend{position:fixed;bottom:1rem;left:1.5rem;z-index:10;background:#fff;opacity:1;box-shadow:none}
+    .legend,.legend h3,.legend-chip{color:#6b635a}
+    .legend svg{display:none}
+    .legend-actions .btn{display:none}
+    .legend-brand{opacity:1;color:#6b635a}
+    .brand-short{display:none}
+    .brand-full{display:inline}
+    svg{position:fixed;top:0;left:0;width:100vw;height:100vh;background:#fff}
+    .node .name{paint-order:stroke;stroke:var(--bg);stroke-width:4px;stroke-linejoin:round;fill:#1a1816!important}
+    .node.field .name{fill:#6b635a!important}
+    .link.hasField{stroke:#d4d4d4!important}
+    @page{size:landscape;margin:0}
+}
+
+.tooltip{position:fixed;background:var(--c1);color:var(--bg);padding:.35rem .55rem;border-radius:5px;font-size:.7rem;font-weight:500;pointer-events:none;opacity:0;transition:opacity .15s ease-out;z-index:100;white-space:nowrap}
+.tooltip.visible{opacity:1}
+    .node.selected circle,.node.selected rect{stroke:#241a51;stroke-width:4}.title{pointer-events:none;background:rgba(249,248,246,.94);padding:8px 12px;border-radius:8px;max-width:calc(100vw - 32px)}.tooltip{white-space:normal;max-width:min(320px,calc(100vw - 16px));overflow-wrap:anywhere;line-height:1.6}.node{pointer-events:bounding-box}@media(max-width:500px){.title{top:12px;left:12px}.title h1{font-size:16px}.legend{right:10px;bottom:10px;padding:8px;max-width:150px}.legend-row{gap:2px}.legend-chip{font-size:8px;padding:1px 3px}}.legend{display:none!important}</style>
+</head>
+<body>
+<div class="title">
+    <h1>知识结构 · Schema</h1>
+    <p>拖动节点调整布局 · 悬停高亮 · 点击查看详情</p>
+</div>
+<div class="tooltip" id="tooltip"></div>
+
+<svg id="graph">
+    <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--extends)"/>
+        </marker>
+        <filter id="text-bg" x="-50%" y="-50%" width="200%" height="200%">
+            <feFlood flood-color="var(--bg)" flood-opacity="0.9" result="bg"/>
+            <feMorphology in="SourceAlpha" radius="3" operator="dilate" result="dilated"/>
+            <feComposite in="bg" in2="dilated" operator="in" result="bg-text"/>
+            <feMerge>
+                <feMergeNode in="bg-text"/>
+                <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+        </filter>
+        <symbol id="icon-text" viewBox="0 0 16 16">
+            <path d="M3 4h10M3 8h8M3 12h6" stroke="#fff" stroke-width="2" stroke-linecap="round" fill="none"/>
+        </symbol>
+        <symbol id="icon-date" viewBox="0 0 16 16">
+            <rect x="2" y="3" width="12" height="11" rx="1" stroke="#fff" stroke-width="1.5" fill="none"/>
+            <path d="M2 6h12M5 1v3M11 1v3" stroke="#fff" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+        </symbol>
+        <symbol id="icon-url" viewBox="0 0 16 16">
+            <path d="M6.5 9.5a3 3 0 004.2.2l1.8-1.8a3 3 0 00-4.2-4.2L7 5M9.5 6.5a3 3 0 00-4.2-.2L3.5 8.1a3 3 0 004.2 4.2L9 11" stroke="#fff" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+        </symbol>
+        <symbol id="icon-options" viewBox="0 0 16 16">
+            <circle cx="4" cy="4" r="1.5" fill="#fff"/>
+            <circle cx="4" cy="8" r="1.5" fill="#fff"/>
+            <circle cx="4" cy="12" r="1.5" fill="#fff"/>
+            <path d="M7 4h6M7 8h6M7 12h6" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+        </symbol>
+        <symbol id="icon-tag" viewBox="0 0 16 16">
+            <text x="8" y="13" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">#</text>
+        </symbol>
+    </defs>
+</svg>
+
+<div class="legend">
+    <h3>标签分支</h3>
+    <div class="legend-row" id="legend-branches"></div>
+    <h3 style="margin-top:.4rem">关系</h3>
+    <div class="legend-row">
+        <div class="legend-chip"><div class="legend-line"></div>继承</div>
+        <div class="legend-chip"><div class="legend-line" style="border-color:var(--hasField)"></div>拥有字段</div>
+        <div class="legend-chip"><div class="legend-line dashed"></div>字段引用目标</div>
+    </div>
+    <div class="legend-actions">
+        <button class="btn" id="btn-print" title="Save as PDF">
+            <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            PDF
+        </button>
+        <a class="legend-brand" href="https://tana.inc" target="_blank"><span class="brand-short">tana.inc</span><span class="brand-full">Created with tana.inc</span></a>
+    </div>
+</div>
+
+<script>
+const iconMap = { content: 'icon-text', date: 'icon-date', url: 'icon-url', options: 'icon-options', instance: 'icon-tag' };
+
+// {{SCHEMA}} - Replace this with the generated schema object
+const schema = @@SCHEMA@@;
+
+const svg = document.getElementById('graph');
+let width = window.innerWidth;
+let height = window.innerHeight;
+
+// Build nodes
+const nodeMap = new Map();
+schema.tags.forEach(t => nodeMap.set(t.id, { ...t, nodeType: 'tag', x: width/2, y: height/2, vx: 0, vy: 0 }));
+schema.fields.forEach(f => nodeMap.set(f.id, { ...f, nodeType: 'field', x: width/2, y: height/2, vx: 0, vy: 0 }));
+const nodes = Array.from(nodeMap.values());
+
+// Calculate depth and branch for tags
+const parentMap = new Map();
+schema.extends.forEach(e => parentMap.set(e.from, e.to));
+
+function getDepth(id, visited = new Set()) {
+    if (visited.has(id)) return 0;
+    visited.add(id);
+    const parent = parentMap.get(id);
+    return parent ? 1 + getDepth(parent, visited) : 0;
+}
+
+function getRoot(id, visited = new Set()) {
+    if (visited.has(id)) return id;
+    visited.add(id);
+    const parent = parentMap.get(id);
+    return parent ? getRoot(parent, visited) : id;
+}
+
+// Discover root elements and generate colors
+const roots = schema.tags.filter(t => !parentMap.has(t.id)).map(t => t.id);
+const palette = ['#6366f1','#10b981','#a855f7','#f97316','#ec4899','#14b8a6','#f59e0b','#8b5cf6'];
+const branchColors = {};
+roots.forEach((root, i) => {
+    branchColors[root] = palette[i % palette.length];
+});
+
+// Populate legend dynamically
+const legendBranches = document.getElementById('legend-branches');
+roots.forEach(rootId => {
+    const tag = schema.tags.find(t => t.id === rootId);
+    const chip = document.createElement('div');
+    chip.className = 'legend-chip';
+    chip.innerHTML = `<svg viewBox="0 0 14 14"><circle cx="7" cy="7" r="6" fill="${branchColors[rootId]}"/></svg>${tag?.name || rootId}`;
+    legendBranches.appendChild(chip);
+});
+
+nodes.filter(n => n.nodeType === 'tag').forEach(n => {
+    n.depth = getDepth(n.id);
+    n.root = getRoot(n.id);
+    n.branchColor = branchColors[n.root] || palette[0];
+    n.radius = Math.max(16, 30 - n.depth * 4);
+});
+
+// Build links
+const links = [
+    ...schema.extends.map(e => ({ source: nodeMap.get(e.from), target: nodeMap.get(e.to), type: 'extends' })),
+    ...schema.hasField.map(e => ({ source: nodeMap.get(e.tag), target: nodeMap.get(e.field), type: 'hasField' })),
+    ...(schema.instanceOf || []).map(e => ({ source: nodeMap.get(e.field), target: nodeMap.get(e.tag), type: 'instance' }))
+];
+
+// Initial positions - spread by depth
+const depthGroups = {};
+nodes.filter(n => n.nodeType === 'tag').forEach(n => {
+    if (!depthGroups[n.depth]) depthGroups[n.depth] = [];
+    depthGroups[n.depth].push(n);
+});
+
+Object.entries(depthGroups).forEach(([depth, tags]) => {
+    const y = 0.26 + parseInt(depth) * 0.23;
+    tags.forEach((n, i) => {
+        n.x = width * (0.1 + (i / Math.max(1, tags.length - 1)) * 0.8);
+        n.y = height * Math.min(y, 0.7);
+    });
+});
+
+// Position fields near their first owning tag
+const fieldOwners = new Map();
+schema.hasField.forEach(hf => {
+    if (!fieldOwners.has(hf.field)) fieldOwners.set(hf.field, hf.tag);
+});
+nodes.filter(n => n.nodeType === 'field').forEach(n => {
+    const ownerTag = nodeMap.get(fieldOwners.get(n.id));
+    if (ownerTag) {
+        const angle = Math.random() * Math.PI * 0.5 + Math.PI * 0.25;
+        const dist = 60 + Math.random() * 40;
+        n.x = ownerTag.x + Math.cos(angle) * dist;
+        n.y = ownerTag.y + Math.sin(angle) * dist;
+    } else {
+        n.x = width * 0.5;
+        n.y = height * 0.8;
+    }
+});
+
+// SVG groups
+const linkGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+const nodeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+svg.appendChild(linkGroup);
+svg.appendChild(nodeGroup);
+
+// Create links
+links.forEach(link => {
+    if (!link.source || !link.target) return;
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.classList.add('link', link.type);
+
+    if (link.type === 'extends') {
+        const color = link.source.branchColor || palette[0];
+        path.style.stroke = color;
+        const markerId = 'arrow-' + link.source.root;
+        if (!document.getElementById(markerId)) {
+            const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+            marker.setAttribute('id', markerId);
+            marker.setAttribute('viewBox', '0 0 10 10');
+            marker.setAttribute('refX', '8');
+            marker.setAttribute('refY', '5');
+            marker.setAttribute('markerWidth', '5');
+            marker.setAttribute('markerHeight', '5');
+            marker.setAttribute('orient', 'auto-start-reverse');
+            const arrowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            arrowPath.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
+            arrowPath.style.fill = color;
+            marker.appendChild(arrowPath);
+            document.querySelector('defs').appendChild(marker);
+        }
+        path.setAttribute('marker-end', `url(#${markerId})`);
+    } else if (link.type === 'instance') {
+        const color = link.target.branchColor || palette[0];
+        path.style.stroke = color;
+    }
+
+    link.el = path;
+    linkGroup.appendChild(path);
+});
+
+// Create nodes
+nodes.forEach(node => {
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.classList.add('node', node.nodeType);
+
+    if (node.nodeType === 'tag') {
+        const r = node.radius || 22;
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('r', r);
+        circle.style.fill = node.branchColor;
+        g.appendChild(circle);
+
+        const iconSize = Math.round(r * 0.8);
+        const icon = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+        icon.setAttribute('href', '#icon-tag');
+        icon.setAttribute('x', -iconSize/2);
+        icon.setAttribute('y', -iconSize/2);
+        icon.setAttribute('width', iconSize);
+        icon.setAttribute('height', iconSize);
+        g.appendChild(icon);
+    } else {
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('width', 28);
+        rect.setAttribute('height', 28);
+        rect.setAttribute('x', -14);
+        rect.setAttribute('y', -14);
+        rect.setAttribute('rx', 5);
+        g.appendChild(rect);
+
+        const iconId = iconMap[node.type] || 'icon-text';
+        const icon = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+        icon.setAttribute('href', '#' + iconId);
+        icon.setAttribute('x', -9);
+        icon.setAttribute('y', -9);
+        icon.setAttribute('width', 18);
+        icon.setAttribute('height', 18);
+        g.appendChild(icon);
+    }
+
+    const nameText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    nameText.classList.add('name');
+    nameText.setAttribute('filter', 'url(#text-bg)');
+    const textOffset = node.nodeType === 'tag' ? (node.radius || 22) + 14 : 32;
+    nameText.setAttribute('y', textOffset);
+    const chunks = node.name.match(/.{1,17}/gu) || [''];
+    chunks.forEach((s,i)=>{const t=document.createElementNS('http://www.w3.org/2000/svg','tspan');t.setAttribute('x','0');t.setAttribute('dy',i===0?'0':'16');t.textContent=s;nameText.appendChild(t);});
+    g.appendChild(nameText);
+
+    g.addEventListener('click',()=>{if(moved)return;window.parent.postMessage({node:{name:node.name,tanaId:node.tanaId,nodeType:node.nodeType,type:node.type,body:node.body,status:node.status,options:node.options,default:node.default}},'*');});
+    // Drag
+    let dragging = false, moved = false, dragStart = null, dragOffset = [0,0];
+    g.addEventListener('mousedown', e => { dragging = true; moved=false; dragStart=[e.clientX,e.clientY]; const pt=svg.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;const local=pt.matrixTransform(svg.getScreenCTM().inverse());dragOffset=[node.x-local.x,node.y-local.y];node.fx = node.x; node.fy = node.y; e.preventDefault(); });
+    document.addEventListener('mousemove', e => {
+        if (!dragging) return;
+        if(Math.hypot(e.clientX-dragStart[0],e.clientY-dragStart[1])>5)moved=true;
+        const pt=svg.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;const local=pt.matrixTransform(svg.getScreenCTM().inverse());
+        node.fx=local.x+dragOffset[0];node.fy=local.y+dragOffset[1];
+        node.x=node.fx;node.y=node.fy;
+    });
+    document.addEventListener('mouseup', () => { if (dragging) { dragging = false; node.fx = null; node.fy = null; } });
+
+    // Hover highlight
+    g.addEventListener('mouseenter', e => {
+        if (dragging) return;
+        highlightConnections(node);
+        showTooltip(node, e);
+    });
+    g.addEventListener('mouseleave', () => {
+        clearHighlight();
+        hideTooltip();
+    });
+    g.addEventListener('mousemove', e => {
+        if (!dragging) updateTooltipPosition(e);
+    });
+
+    node.el = g;
+    nodeGroup.appendChild(g);
+});
+
+// Tooltip
+const tooltip = document.getElementById('tooltip');
+function showTooltip(node, e) {
+    tooltip.textContent = node.name + (node.status ? ' · '+node.status : '') + (node.type ? ' · '+node.type : '') + (node.options ? ' · '+node.options.join(' / ') : '');
+    tooltip.classList.add('visible');
+    updateTooltipPosition(e);
+}
+function updateTooltipPosition(e) {
+    tooltip.style.left = Math.max(8,Math.min(innerWidth-tooltip.offsetWidth-8,e.clientX+12))+'px';
+    tooltip.style.top = Math.max(8,Math.min(innerHeight-tooltip.offsetHeight-8,e.clientY+12))+'px';
+}
+function hideTooltip() {
+    tooltip.classList.remove('visible');
+}
+
+// Highlight connections
+let pinnedSchema=null;
+function highlightConnections(node) {
+    node=pinnedSchema||node;
+    const connected = new Set([node.id]);
+    const connectedLinks = new Set();
+
+    links.forEach(link => {
+        if (link.source?.id === node.id || link.target?.id === node.id) {
+            connected.add(link.source?.id);
+            connected.add(link.target?.id);
+            connectedLinks.add(link);
+        }
+    });
+
+    nodes.forEach(n => {
+        n.el.classList.toggle('dimmed', !connected.has(n.id));
+    });
+
+    links.forEach(link => {
+        if (connectedLinks.has(link)) {
+            link.el.classList.remove('dimmed');
+            link.el.classList.add('highlighted');
+        } else {
+            link.el.classList.add('dimmed');
+            link.el.classList.remove('highlighted');
+        }
+    });
+}
+
+function clearHighlight() {
+    if(pinnedSchema){highlightConnections(pinnedSchema);return;}
+    nodes.forEach(n => n.el.classList.remove('dimmed'));
+    links.forEach(l => {
+        l.el.classList.remove('dimmed');
+        l.el.classList.remove('highlighted');
+    });
+}
+
+// Simulation
+let lastFrame=0;
+let schemaPaused=false;
+function simulate(time=0) {
+    if(schemaPaused){requestAnimationFrame(simulate);return;}
+    if(document.hidden||(time&&time-lastFrame<15)){requestAnimationFrame(simulate);return;}lastFrame=time;
+    for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+            const a = nodes[i], b = nodes[j];
+            let dx = b.x - a.x, dy = b.y - a.y;
+            let dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            let strength = (a.nodeType === b.nodeType) ? 8000 : 4000;
+            let force = strength / (dist * dist);
+            if (a.fx == null) { a.vx -= (dx/dist)*force; a.vy -= (dy/dist)*force; }
+            if (b.fx == null) { b.vx += (dx/dist)*force; b.vy += (dy/dist)*force; }
+        }
+    }
+
+    links.forEach(link => {
+        if (!link.source || !link.target) return;
+        let dx = link.target.x - link.source.x, dy = link.target.y - link.source.y;
+        let dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        let ideal = link.type === 'extends' ? 200 : link.type === 'instance' ? 200 : 150;
+        let str = link.type === 'hasField' ? 0.03 : 0.015;
+        let force = (dist - ideal) * str;
+        if (link.source.fx == null) { link.source.vx += (dx/dist)*force; link.source.vy += (dy/dist)*force; }
+        if (link.target.fx == null) { link.target.vx -= (dx/dist)*force; link.target.vy -= (dy/dist)*force; }
+    });
+
+    nodes.forEach(n => {
+        if (n.fx != null) return;
+        n.vx += (width/2 - n.x) * 0.00005;
+        n.vy += (height/2 - n.y) * 0.00005;
+        n.vx *= 0.9; n.vy *= 0.9;
+        n.x += n.vx; n.y += n.vy;
+        n.x = Math.max(125, Math.min(width - 125, n.x));
+        n.y = Math.max(150, Math.min(height - 145, n.y));
+    });
+
+    nodes.forEach(n => n.el.setAttribute('transform', `translate(${n.x},${n.y})`));
+
+    links.forEach(link => {
+        if (!link.source || !link.target || !link.el) return;
+        const sx = link.source.x, sy = link.source.y, tx = link.target.x, ty = link.target.y;
+        const dx = tx - sx, dy = ty - sy, dist = Math.sqrt(dx*dx + dy*dy) || 1;
+        const nx = dx/dist, ny = dy/dist;
+        const ss = link.source.nodeType === 'tag' ? (link.source.radius || 22) : 14;
+        const ts = link.target.nodeType === 'tag' ? (link.target.radius || 22) : 14;
+        const ao = link.type === 'extends' ? 5 : 0;
+        const x1 = sx + nx*ss, y1 = sy + ny*ss;
+        const x2 = tx - nx*(ts+ao), y2 = ty - ny*(ts+ao);
+        const curve = link.type === 'instance' ? 0.2 : link.type === 'extends' ? 0.03 : 0;
+        const mx = (x1+x2)/2, my = (y1+y2)/2;
+        const cx = mx - (y2-y1)*curve, cy = my + (x2-x1)*curve;
+        link.el.setAttribute('d', curve ? `M${x1},${y1} Q${cx},${cy} ${x2},${y2}` : `M${x1},${y1} L${x2},${y2}`);
+    });
+
+    requestAnimationFrame(simulate);
+}
+
+// Pre-settle
+function tick() {
+    for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+            const a = nodes[i], b = nodes[j];
+            let dx = b.x - a.x, dy = b.y - a.y;
+            let dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            let strength = (a.nodeType === b.nodeType) ? 8000 : 4000;
+            let force = strength / (dist * dist);
+            if (a.fx == null) { a.vx -= (dx/dist)*force; a.vy -= (dy/dist)*force; }
+            if (b.fx == null) { b.vx += (dx/dist)*force; b.vy += (dy/dist)*force; }
+        }
+    }
+    links.forEach(link => {
+        if (!link.source || !link.target) return;
+        let dx = link.target.x - link.source.x, dy = link.target.y - link.source.y;
+        let dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        let ideal = link.type === 'extends' ? 200 : link.type === 'instance' ? 200 : 150;
+        let str = link.type === 'hasField' ? 0.03 : 0.015;
+        let force = (dist - ideal) * str;
+        if (link.source.fx == null) { link.source.vx += (dx/dist)*force; link.source.vy += (dy/dist)*force; }
+        if (link.target.fx == null) { link.target.vx -= (dx/dist)*force; link.target.vy -= (dy/dist)*force; }
+    });
+    nodes.forEach(n => {
+        if (n.fx != null) return;
+        n.vx += (width/2 - n.x) * 0.00005;
+        n.vy += (height/2 - n.y) * 0.00005;
+        n.vx *= 0.9; n.vy *= 0.9;
+        n.x += n.vx; n.y += n.vy;
+        n.x = Math.max(125, Math.min(width - 125, n.x));
+        n.y = Math.max(150, Math.min(height - 145, n.y));
+    });
+}
+
+// Pin tags, settle fields, unpin
+nodes.filter(n => n.nodeType === 'tag').forEach(n => { n.fx = n.x; n.fy = n.y; });
+for (let i = 0; i < 300; i++) tick();
+nodes.filter(n => n.nodeType === 'tag').forEach(n => { n.fx = null; n.fy = null; });
+
+// Initial render
+nodes.forEach(n => n.el.setAttribute('transform', `translate(${n.x},${n.y})`));
+links.forEach(link => {
+    if (!link.source || !link.target || !link.el) return;
+    const sx = link.source.x, sy = link.source.y, tx = link.target.x, ty = link.target.y;
+    const dx = tx - sx, dy = ty - sy, dist = Math.sqrt(dx*dx + dy*dy) || 1;
+    const nx = dx/dist, ny = dy/dist;
+    const ss = link.source.nodeType === 'tag' ? (link.source.radius || 22) : 14;
+    const ts = link.target.nodeType === 'tag' ? (link.target.radius || 22) : 14;
+    const ao = link.type === 'extends' ? 5 : 0;
+    const x1 = sx + nx*ss, y1 = sy + ny*ss;
+    const x2 = tx - nx*(ts+ao), y2 = ty - ny*(ts+ao);
+    const curve = link.type === 'instance' ? 0.2 : link.type === 'extends' ? 0.03 : 0;
+    const mx = (x1+x2)/2, my = (y1+y2)/2;
+    const cx = mx - (y2-y1)*curve, cy = my + (x2-x1)*curve;
+    link.el.setAttribute('d', curve ? `M${x1},${y1} Q${cx},${cy} ${x2},${y2}` : `M${x1},${y1} L${x2},${y2}`);
+});
+
+simulate();
+
+// Resize
+window.addEventListener('resize', () => {
+    const oldW = width, oldH = height;
+    width = window.innerWidth;
+    height = window.innerHeight;
+    const dx = (width - oldW) / 2;
+    const dy = (height - oldH) / 2;
+    nodes.forEach(n => { n.x += dx; n.y += dy; });
+});
+
+// Print / PDF
+document.getElementById('btn-print').addEventListener('click', () => {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    nodes.forEach(n => {
+        const r = n.nodeType === 'tag' ? (n.radius || 22) : 14;
+        minX = Math.min(minX, n.x - r - 50);
+        minY = Math.min(minY, n.y - r - 20);
+        maxX = Math.max(maxX, n.x + r + 50);
+        maxY = Math.max(maxY, n.y + r + 50);
+    });
+
+    const padding = 60;
+    let vbX = minX - padding;
+    let vbY = minY - padding;
+    let vbW = (maxX - minX) + padding * 2;
+    let vbH = (maxY - minY) + padding * 2;
+
+    const pageAspect = 1.35;
+    const contentAspect = vbW / vbH;
+
+    if (contentAspect < pageAspect) {
+        const newW = vbH * pageAspect;
+        vbX -= (newW - vbW) / 2;
+        vbW = newW;
+    } else {
+        const newH = vbW / pageAspect;
+        vbY -= (newH - vbH) / 2;
+        vbH = newH;
+    }
+
+    const svgEl = document.getElementById('graph');
+    const originalViewBox = svgEl.getAttribute('viewBox');
+    svgEl.setAttribute('viewBox', `${vbX} ${vbY} ${vbW} ${vbH}`);
+
+    window.print();
+
+    setTimeout(() => {
+        if (originalViewBox) {
+            svgEl.setAttribute('viewBox', originalViewBox);
+        } else {
+            svgEl.removeAttribute('viewBox');
+        }
+    }, 100);
+});
+window.addEventListener('message',e=>{if(e.source!==parent||e.data?.action!=='focus')return;pinnedSchema=nodes.find(n=>n.tanaId===e.data.id)||null;if(pinnedSchema){highlightConnections(pinnedSchema);if(e.data.center){const rect=svg.getBoundingClientRect(),scale=readGraphZoom()/100,w=rect.width/scale,h=rect.height/scale;svg.setAttribute('viewBox',[pinnedSchema.x-w/2,pinnedSchema.y-h/2,w,h].join(' '));}}else clearHighlight();nodes.forEach(n=>n.el.classList.toggle('selected',n===pinnedSchema));});
+
+let blankDown=null;
+document.addEventListener('pointerdown',e=>{blankDown=e.button===0&&!e.target.closest('.node,button,input,label,.controls,.legend,a')?{x:e.clientX,y:e.clientY}:null;},true);
+document.addEventListener('pointerup',e=>{if(blankDown&&Math.hypot(e.clientX-blankDown.x,e.clientY-blankDown.y)<5&&!e.target.closest('.node,button,input,label,.controls,.legend,a'))parent.postMessage({action:'dismiss'},'*');blankDown=null;},true);
+document.addEventListener('pointercancel',()=>blankDown=null);
+
+
+// Preserve the existing scene during a background data refresh.
+window.liveBusy=false;
+document.addEventListener('pointerdown',()=>window.liveBusy=true,true);
+for(const type of ['pointerup','pointercancel'])document.addEventListener(type,()=>window.liveBusy=false,true);
+window.captureLiveScene=()=>({nodes:nodes.map(n=>({id:n.id,x:n.x,y:n.y,vx:n.vx,vy:n.vy,anchorX:n.anchorX,anchorY:n.anchorY})),box:svg.getAttribute('viewBox'),checks:[...document.querySelectorAll('input[type=checkbox]')].map((n,i)=>[n.dataset.type?'type:'+n.dataset.type:n.id?'id:'+n.id:'index:'+i,n.checked]),paused:schemaPaused});
+const saved=parent.pendingLiveScene;
+if(saved){
+ const positions=new Map(saved.nodes.map(n=>[n.id,n]));
+ for(const n of nodes){const p=positions.get(n.id);if(p)for(const key of ['x','y','vx','vy','anchorX','anchorY'])if(Number.isFinite(p[key]))n[key]=p[key];}
+ if(saved.box)svg.setAttribute('viewBox',saved.box);
+ for(const [i,[key,checked]] of (saved.checks||[]).entries()){const inputs=[...document.querySelectorAll('input[type=checkbox]')];const input=inputs.find(n=>key===(n.dataset.type?'type:'+n.dataset.type:n.id?'id:'+n.id:'index:'+inputs.indexOf(n)))||document.getElementById(key)||(!key?inputs[i]:null);if(input&&input.checked!==checked){input.checked=checked;input.dispatchEvent(new Event('change'));}}
+
+ nodes.forEach(n=>n.el.setAttribute('transform',`translate(${n.x},${n.y})`));
+}
+
+
+// Shared zoom API: 100% means one SVG unit per CSS pixel.
+function readGraphZoom(){const m=svg.getScreenCTM();return m?Math.hypot(m.a,m.b)*100:100;}
+function reportGraphZoom(){parent.postMessage({action:'zoom-state',percent:readGraphZoom()},'*');}
+function setGraphZoom(percent,clientX,clientY){
+ if(!Number.isFinite(percent))return;
+ percent=Math.max(10,Math.min(400,percent));
+ const rect=svg.getBoundingClientRect(),matrix=svg.getScreenCTM();if(!matrix||!rect.width||!rect.height)return;
+ const px=clientX??rect.left+rect.width/2,py=clientY??rect.top+rect.height/2;
+ const point=svg.createSVGPoint();point.x=px;point.y=py;const anchor=point.matrixTransform(matrix.inverse());
+ const width=rect.width/(percent/100),height=rect.height/(percent/100);
+ const box=[anchor.x-(px-rect.left)/rect.width*width,anchor.y-(py-rect.top)/rect.height*height,width,height];
+
+ svg.setAttribute('viewBox',box.join(' '));reportGraphZoom();
+}
+window.readGraphZoom=readGraphZoom;window.setGraphZoom=setGraphZoom;
+svg.addEventListener('wheel',event=>{event.preventDefault();setGraphZoom(readGraphZoom()*(event.deltaY>0?1/1.12:1.12),event.clientX,event.clientY);},{passive:false});
+new MutationObserver(reportGraphZoom).observe(svg,{attributes:true,attributeFilter:['viewBox']});
+if(!saved?.box)setGraphZoom(50);
+window.addEventListener('resize',reportGraphZoom);reportGraphZoom();
+
+if(saved)schemaPaused=!!saved.paused;
+window.readGraphControls=()=>({running:!schemaPaused,isolated:null,edges:{}});
+window.runGraphAction=(action)=>{if(action==='motion')schemaPaused=!schemaPaused;else if(action==='pdf')document.getElementById('btn-print').click();parent.postMessage({action:'controls-state'},'*');};
+parent.postMessage({action:'controls-state'},'*');
+</script>
+</body>
+</html>

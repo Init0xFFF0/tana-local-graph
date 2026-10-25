@@ -1,0 +1,270 @@
+{
+  "graph": {
+    "nodes": [
+      {
+        "id": "demo-topic",
+        "name": "示例主题",
+        "kind": "Topic",
+        "status": "",
+        "body": "- 示例主题 #Topic <!-- node-id: demo-topic -->\n  - ",
+        "x": 520,
+        "y": 450,
+        "tagIds": [
+          "demo-tag-topic"
+        ],
+        "tagNames": [
+          "Topic"
+        ],
+        "keywords": []
+      },
+      {
+        "id": "demo-note-a",
+        "name": "先记录，再整理",
+        "kind": "Note",
+        "status": "",
+        "body": "- 先记录，再整理 #Note <!-- node-id: demo-note-a -->\n  - 记录时保留原始想法。\n  - [定期回顾](tana:demo-note-b)",
+        "x": 800,
+        "y": 300,
+        "tagIds": [
+          "demo-tag-note"
+        ],
+        "tagNames": [
+          "Note"
+        ],
+        "keywords": []
+      },
+      {
+        "id": "demo-note-b",
+        "name": "定期回顾",
+        "kind": "Note",
+        "status": "",
+        "body": "- 定期回顾 #Note <!-- node-id: demo-note-b -->\n  - 每周回顾自己的记录。",
+        "x": 1080,
+        "y": 550,
+        "tagIds": [
+          "demo-tag-note"
+        ],
+        "tagNames": [
+          "Note"
+        ],
+        "keywords": []
+      },
+      {
+        "id": "demo-idea",
+        "name": "试试新的记录方式",
+        "kind": "Idea",
+        "status": "",
+        "body": "- 试试新的记录方式 #Idea <!-- node-id: demo-idea -->\n  - 这是一条虚构的演示想法。",
+        "x": 750,
+        "y": 850,
+        "tagIds": [
+          "demo-tag-idea"
+        ],
+        "tagNames": [
+          "Idea"
+        ],
+        "keywords": []
+      },
+      {
+        "id": "demo-question",
+        "name": "如何找到相关内容？",
+        "kind": "Question",
+        "status": "Unanswered",
+        "body": "- 如何找到相关内容？ #Question <!-- node-id: demo-question -->\n  - 这个问题仅用于演示节点。",
+        "x": 1250,
+        "y": 900,
+        "tagIds": [
+          "demo-tag-question"
+        ],
+        "tagNames": [
+          "Question"
+        ],
+        "keywords": []
+      }
+    ],
+    "edges": [
+      {
+        "source": "demo-note-a",
+        "target": "demo-note-b",
+        "type": "ref",
+        "evidence": "虚构示例引用"
+      },
+      {
+        "source": "demo-note-a",
+        "target": "demo-topic",
+        "type": "topic",
+        "evidence": "虚构示例归属"
+      }
+    ],
+    "availableTags": [
+      {
+        "id": "demo-tag-topic",
+        "name": "Topic"
+      },
+      {
+        "id": "demo-tag-note",
+        "name": "Note"
+      },
+      {
+        "id": "demo-tag-idea",
+        "name": "Idea"
+      },
+      {
+        "id": "demo-tag-question",
+        "name": "Question"
+      }
+    ],
+    "scope": "虚构演示数据",
+    "semantic": {
+      "status": "ready",
+      "model": "synthetic-demo-only",
+      "ids": [
+        "demo-topic",
+        "demo-note-a",
+        "demo-note-b",
+        "demo-idea",
+        "demo-question"
+      ],
+      "values": [
+        [
+          1,
+          0.66,
+          0.62,
+          0.44,
+          0.45
+        ],
+        [
+          0.66,
+          1,
+          0.79,
+          0.64,
+          0.55
+        ],
+        [
+          0.62,
+          0.79,
+          1,
+          0.51,
+          0.62
+        ],
+        [
+          0.44,
+          0.64,
+          0.51,
+          1,
+          0.5
+        ],
+        [
+          0.45,
+          0.55,
+          0.62,
+          0.5,
+          1
+        ]
+      ],
+      "relatedStatus": "ready",
+      "relatedNotes": {
+        "demo-topic": [
+          {
+            "id": "demo-note-a",
+            "score": 0.66
+          },
+          {
+            "id": "demo-note-b",
+            "score": 0.62
+          }
+        ],
+        "demo-note-a": [
+          {
+            "id": "demo-note-b",
+            "score": 0.79
+          },
+          {
+            "id": "demo-idea",
+            "score": 0.64
+          }
+        ],
+        "demo-note-b": [
+          {
+            "id": "demo-note-a",
+            "score": 0.79
+          },
+          {
+            "id": "demo-question",
+            "score": 0.62
+          }
+        ],
+        "demo-idea": [
+          {
+            "id": "demo-note-a",
+            "score": 0.64
+          }
+        ],
+        "demo-question": [
+          {
+            "id": "demo-note-b",
+            "score": 0.62
+          }
+        ]
+      }
+    }
+  },
+  "schema": {
+    "tags": [
+      {
+        "id": "tag-topic",
+        "tanaId": "demo-tag-topic",
+        "name": "Topic",
+        "body": "示例标签 Topic",
+        "system": false
+      },
+      {
+        "id": "tag-note",
+        "tanaId": "demo-tag-note",
+        "name": "Note",
+        "body": "示例标签 Note",
+        "system": false
+      },
+      {
+        "id": "tag-idea",
+        "tanaId": "demo-tag-idea",
+        "name": "Idea",
+        "body": "示例标签 Idea",
+        "system": false
+      },
+      {
+        "id": "tag-question",
+        "tanaId": "demo-tag-question",
+        "name": "Question",
+        "body": "示例标签 Question",
+        "system": false
+      }
+    ],
+    "fields": [
+      {
+        "id": "field-topic",
+        "tanaId": "demo-field-topic",
+        "name": "Topic",
+        "type": "instance",
+        "body": "示例主题字段"
+      }
+    ],
+    "extends": [],
+    "hasField": [
+      {
+        "tag": "tag-note",
+        "field": "field-topic"
+      }
+    ],
+    "instanceOf": [
+      {
+        "field": "field-topic",
+        "tag": "tag-topic"
+      }
+    ],
+    "metadata": {
+      "workspaceId": "demo-workspace"
+    }
+  },
+  "workspace": "演示 · 虚构数据，相似度非模型计算"
+}

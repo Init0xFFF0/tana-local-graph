@@ -1,0 +1,9 @@
+{
+  "workspace_id": "YOUR_WORKSPACE_ID",
+  "root_ids": ["YOUR_ROOT_NODE_ID"],
+  "exclude_ids": [],
+  "mcp_url": "http://127.0.0.1:8262/mcp",
+  "model_path": "models/qwen3-embedding-0.6b",
+  "data_dir": ".local-data",
+  "sync_interval": 5
+}
