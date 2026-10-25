@@ -1,5 +1,7 @@
 # Tana Local Graph
 
+[![Checks](https://github.com/Init0xFFF0/tana-local-graph/actions/workflows/check.yml/badge.svg)](https://github.com/Init0xFFF0/tana-local-graph/actions/workflows/check.yml)
+
 一个在本机浏览 Tana 笔记及标签结构的图谱工具。通过**只读 MCP**读取指定范围，使用本地 Qwen embedding 计算语义相似度；前端提供动态图谱、搜索、节点详情和正文链接跳转。
 
 > 发布包只含虚构演示数据，不含作者笔记、工作区 ID、访问凭据、向量数据库或模型权重。演示相似度是手工构造的测试数据，不是 Qwen 计算结果。
@@ -135,10 +137,10 @@ python3 scripts/check_public_tree.py
 
 安装后可省去 `PYTHONPATH=src`。测试会监听短暂的本机随机端口，覆盖模板注入转义、共享子内容引用、快照恢复、MCP 初始化/会话/只读限制、演示 HTTP/SSE 和访问边界，不连接真实 Tana。
 
-GitHub Actions 已附上上述检查。该工作流尚未在你的 GitHub 仓库实际运行；本地结果和限制见 [发布前检查报告](docs/RELEASE_REVIEW.md)。
+GitHub Actions 会在推送和 Pull Request 时执行上述检查，结果见 [Actions](https://github.com/Init0xFFF0/tana-local-graph/actions)。本地检查范围和限制见 [发布前检查报告](docs/RELEASE_REVIEW.md)。
 
 ## 上传前
 
 只上传这个独立目录；不要上传个人应用所在的大目录。`.gitignore` 已排除 `config.json`、`.env`、模型、缓存、日志和快照，但它不能移除已经被 Git 跟踪过的敏感文件。
 
-本包尚未代替你选择开源许可证，见 [LICENSE-NOTICE.md](LICENSE-NOTICE.md)。选好后添加正式 `LICENSE`。此项目与 Tana 官方无隶属关系。
+当前仓库未授予额外的开源使用许可，见 [LICENSE-NOTICE.md](LICENSE-NOTICE.md)。所有者后续可选择许可证并添加正式 `LICENSE`。此项目与 Tana 官方无隶属关系。
